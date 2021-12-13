@@ -27,12 +27,18 @@ public:
 	virtual int cmp(Variable* val);
 
 	virtual string printValue();
-	int cmpName(string& s);
 
+	void setActive();
+	void setInactive();
+	bool isActive();
+	bool isConstant();
+
+	int cmpName(string& s);
 	int castToInt();
 	
 protected:
 	string name;
+	bool active, constant;
 	VariableType type;
 };
 

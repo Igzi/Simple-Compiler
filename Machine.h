@@ -22,11 +22,28 @@ private:
 	Variable* getVariable(string& name);
 
 	void loadInstruction(string& instruction);
+	void checkGoTo();
+	bool checkVariable(Variable* a);
+
+	void loadSet(Variable* a, Variable* b);
+	void loadAdd(Variable* a, Variable* b, Variable* c);
+	void loadSub(Variable* a, Variable* b, Variable* c);
+	void loadMul(Variable* a, Variable* b, Variable* c);
+	void loadDiv(Variable* a, Variable* b, Variable* c);
+	void loadGoTo(Variable* a);
+	void loadIfGr(Variable* a, Variable* b);
+	void loadIfEq(Variable* a, Variable* b);
+	void loadElse();
+	void loadEndIf();
+	void loadLoop(Variable* a);
+	void loadEndLoop();
 	
 	void clearMachine();
 
-	vector<Variable*> variables, constants;
-	vector<Command*> instructions;
+	vector<Variable*> variables, constants; //skup svih variabli i konstanti
+	vector<Command*> instructions; //skup zadatih instrukcija
+	vector<pair<int, int>> variable_scope; //intervali instrukcija na kojima neka variabla postoji
+	stack<pair<int, Variable*>> active_variables; //skup variabli koje su trenutno inicijalizovane
 	stack<pair<int, string>> instruction_stack;
 	int pc;
 };

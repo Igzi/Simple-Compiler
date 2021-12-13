@@ -3,6 +3,8 @@
 Variable::Variable()
 {
 	name = "";
+	active = false;
+	constant = false;
 	type = NOTDEFINED;
 }
 
@@ -36,6 +38,26 @@ string Variable::printValue()
 	return "";
 }
 
+void Variable::setActive()
+{
+	if(!constant) active = true;
+}
+
+void Variable::setInactive()
+{
+	if(!constant) active = false;
+}
+
+bool Variable::isActive()
+{
+	return active;
+}
+
+bool Variable::isConstant()
+{
+	return constant;
+}
+
 int Variable::cmpName(string& s)
 {
 	if (name < s) return -1;
@@ -53,6 +75,7 @@ IntVariable::IntVariable(string& var_name)
 {
 	type = INT;
 	name = var_name;
+	active = constant = false; //Comstruktor bez vrednosti se moze pozvati samo za promenljive
 	value = 0;
 }
 
@@ -60,6 +83,7 @@ IntVariable::IntVariable(int val)
 {
 	type = INT;
 	name = "const";
+	active = constant = true; //Comstruktor bez imena se moze pozvati samo za konstante
 	value = val;
 }
 

@@ -3,9 +3,30 @@
 
 #include "Variable.h"
 
+enum CommandType {
+	SET,
+	ADD,
+	SUB,
+	MUL,
+	DIV,
+	GOTO,
+	IFGR,
+	IFEQ,
+	ELSE,
+	ENDIF,
+	LOOP,
+	ENDLOOP,
+};
+
 class Command {
 public:
 	virtual void execute(int& pc) = 0;
+
+	bool checkVariable(Variable* a);
+	CommandType getType();
+
+protected:
+	CommandType type;
 };
 
 class Set : public Command {
@@ -62,6 +83,8 @@ public:
 	GoTo(int pos);
 
 	virtual void execute(int& pc) override;
+
+	int getMove();
 
 protected:
 	int move;

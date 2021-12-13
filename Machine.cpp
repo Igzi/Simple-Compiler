@@ -1,7 +1,10 @@
 #include "Machine.h"
+#include "Exceptions.h"
 
+#include <iostream>
 #include <sstream>
 #include <fstream>
+#include <algorithm>
 
 //Maksimalan broj reci u jednoj instrukciji
 const int MAXINSTRUCTIONSIZE = 4;
@@ -26,8 +29,35 @@ void Machine::loadProgram(const string& filepath)
 	int move = 0;
 
 	while (getline(input,instruction)) {
-		loadInstruction(instruction);
+		try {
+			loadInstruction(instruction);
+		}
+		catch (SyntaxError& e){
+			cout << "Syntax error: line " << e.getLine() << ", " << e.what() << endl;
+			clearMachine();
+			return;
+		}
 	}
+
+	try {
+		checkGoTo();
+	}
+	catch (SyntaxError& e) {
+		cout << "Syntax error: line " << e.getLine() << ", " << e.what() << endl;
+		clearMachine();
+		return;
+	}
+
+	if (instruction_stack.size()) {
+		cout << "Syntax error: Missing ENDLOOP or ENDIF instructions"<< endl;
+		clearMachine();
+		return;
+	}
+
+	while (active_variables.size()) {
+		active_variables.pop();
+	}
+	variable_scope.clear();
 }
 
 void Machine::execute(const string& filepath)
@@ -64,8 +94,11 @@ Variable* Machine::makeVariable(string& name)
 	if (isVariable(name)) return getVariable(name);
 	if (isInt(name)) {
 		constants.push_back(new IntVariable(stoi(name)));
+		constants.back()->setActive(); 
 		return constants.back();
 	}
+	throw SyntaxError("Invalid variable or constant.", instructions.size());
+	return nullptr;
 }
 
 Variable* Machine::getVariable(string& name){
@@ -105,16 +138,25 @@ void Machine::clearMachine()
 	for (int i = 0; i < instructions.size(); i++) {
 		delete instructions[i];
 	}
+
 	variables.clear();
 	constants.clear();
 	instructions.clear();
+	variable_scope.clear();
+
+	while (instruction_stack.size()) {
+		instruction_stack.pop();
+	}
+	while (active_variables.size()) {
+		active_variables.pop();
+	}
 	pc = 0;
 }
 
 void Machine::loadInstruction(string& instruction)
 {
 	stringstream line(instruction);
-	string parameter[MAXINSTRUCTIONSIZE], name;
+	string parameter[MAXINSTRUCTIONSIZE];
 	Variable* a, * b, * c;
 	a = b = c = nullptr;
 	int i = 0, pos;
@@ -127,83 +169,98 @@ void Machine::loadInstruction(string& instruction)
 	c = makeVariable(parameter[3]);
 
 	if (parameter[0] == "SET") {
-		instructions.push_back(new Set(a, b));
+		loadSet(a, b);
+		return;
 	}
+
 	if (parameter[0] == "ADD") {
-		instructions.push_back(new Add(a, b, c));
+		loadAdd(a, b, c);
+		return;
 	}
+
 	if (parameter[0] == "SUB") {
-		instructions.push_back(new Sub(a, b, c));
+		loadSub(a, b, c);
+		return;
 	}
+
 	if (parameter[0] == "MUL") {
-		instructions.push_back(new Mul(a, b, c));
+		loadMul(a, b, c);
+		return;
 	}
+
 	if (parameter[0] == "DIV") {
-		instructions.push_back(new Div(a, b, c));
+		loadDiv(a, b, c);
+		return;
 	}
+
 	if (parameter[0] == "GOTO") {
-		instructions.push_back(new GoTo(a->castToInt()));
+		loadGoTo(a);
+		return;
 	}
+
 	if (parameter[0] == "IFGR") {
-		instruction_stack.push({ instructions.size(),"IFGR" });
-		instructions.push_back(new IfGr(a, b));
+		loadIfGr(a, b);
+		return;
 	}
+
 	if (parameter[0] == "IFEQ") {
-		instruction_stack.push({ instructions.size(),"IFEQ" });
-		instructions.push_back(new IfEq(a, b));
+		loadIfEq(a, b);
+		return;
 	}
+
 	if (parameter[0] == "ELSE") {
-		pair<int,string> tmp = instruction_stack.top();
-		instruction_stack.pop();
-		pos = tmp.first;
-		name = tmp.second;
-
-		if (name == "IFGR") {
-			IfGr* ifgr = dynamic_cast<IfGr*>(instructions[pos]);
-			ifgr->setPosElse(instructions.size());
-		}
-		if (name == "IFEQ") {
-			IfEq* ifeq = dynamic_cast<IfEq*>(instructions[pos]);
-			ifeq->setPosElse(instructions.size());
-		}
-		instruction_stack.push({ instructions.size(),"ELSE" });
-		instructions.push_back(new Else());
+		loadElse();
+		return;
 	}
+
 	if (parameter[0] == "ENDIF") {
-		pair<int, string> tmp = instruction_stack.top();
-		instruction_stack.pop();
-		pos = tmp.first;
-		name = tmp.second;
-
-		if (name == "IFGR") {
-			IfGr* ifgr = dynamic_cast<IfGr*>(instructions[pos]);
-			ifgr->setPosElse(instructions.size());
-		}
-		if (name == "IFEQ") {
-			IfEq* ifeq = dynamic_cast<IfEq*>(instructions[pos]);
-			ifeq->setPosElse(instructions.size());
-		}
-		if (name == "ELSE") {
-			Else* ifelse = dynamic_cast<Else*>(instructions[pos]);
-			ifelse->setPosEndIf(instructions.size());
-		}
-		instructions.push_back(new EndIf());
+		loadEndIf();
+		return;
 	}
+
 	if (parameter[0] == "LOOP") {
-		instruction_stack.push({ instructions.size(),"LOOP" });
-		if (a == nullptr) instructions.push_back(new Loop());
-		else instructions.push_back(new Loop(a->castToInt()));
+		loadLoop(a);
+		return;
 	}
-	if (parameter[0] == "ENDLOOP") {
-		pair<int, string> tmp = instruction_stack.top();
-		instruction_stack.pop();
-		pos = tmp.first;
-		name = tmp.second;
 
-		if (name == "LOOP") {
-			Loop* loop = dynamic_cast<Loop*>(instructions[pos]);
-			loop->setPosEndLoop(instructions.size());
-		}
-		instructions.push_back(new EndLoop(pos));
+	if (parameter[0] == "ENDLOOP") {
+		loadEndLoop();
+		return;
 	}
+
+	throw SyntaxError("Invalid instruction.", instructions.size() + 1);
+}
+
+//Provera da li GoTo preskace inicijalizaciju nekih promenljivih
+
+void Machine::checkGoTo()
+{
+	for (int i = 0; i < instructions.size(); i++) {
+		if (instructions[i]->getType() != GOTO) continue;
+
+		GoTo* ins = dynamic_cast<GoTo*>(instructions[i]);
+
+		for (int j = 0; j < variable_scope.size(); j++) {
+
+			if (i < variable_scope[j].first && i > variable_scope[j].second) {
+				int x = i + ins->getMove();
+
+				if (instructions[x]->getType() == ELSE || instructions[x]->getType() == ENDLOOP) {
+					throw SyntaxError("Invalid GOTO jump", i + 1);
+					return;
+				}
+
+				if (x > variable_scope[j].first && x < variable_scope[j].second) {
+					throw SyntaxError("Invalid GOTO jump", i + 1);
+					return;
+				}
+			}
+		}
+	}
+}
+
+bool Machine::checkVariable(Variable* a)
+{
+	if (a == nullptr) return false;
+	return a->isActive();
 }
