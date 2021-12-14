@@ -6,7 +6,7 @@
 void Machine::loadSet(Variable* a, Variable* b)
 {
 	if (a == nullptr || a->isConstant() || !checkVariable(b)) {
-		throw SyntaxError("Invalid instruction operand", 0);
+		throw SyntaxError("Invalid or undeclared instruction operand.", instructions.size() + 1);
 		return;
 	}
 
@@ -20,8 +20,8 @@ void Machine::loadSet(Variable* a, Variable* b)
 
 void Machine::loadAdd(Variable* a, Variable* b, Variable* c)
 {
-	if (!checkVariable(a) || !checkVariable(b) || !checkVariable(c)) {
-		throw SyntaxError("Invalid instruction operand", instructions.size() + 1);
+	if (!checkVariable(a) || !checkVariable(b) || !checkVariable(c) || a->isConstant()) {
+		throw SyntaxError("Invalid or undeclared instruction operand.", instructions.size() + 1);
 	}
 
 	instructions.push_back(new Add(a, b, c));
@@ -29,8 +29,8 @@ void Machine::loadAdd(Variable* a, Variable* b, Variable* c)
 
 void Machine::loadSub(Variable* a, Variable* b, Variable* c)
 {
-	if (!checkVariable(a) || !checkVariable(b) || !checkVariable(c)) {
-		throw SyntaxError("Invalid instruction operand", instructions.size() + 1);
+	if (!checkVariable(a) || !checkVariable(b) || !checkVariable(c) || a->isConstant()) {
+		throw SyntaxError("Invalid or undeclared instruction operand.", instructions.size() + 1);
 	}
 
 	instructions.push_back(new Sub(a, b, c));
@@ -38,8 +38,8 @@ void Machine::loadSub(Variable* a, Variable* b, Variable* c)
 
 void Machine::loadMul(Variable* a, Variable* b, Variable* c)
 {
-	if (!checkVariable(a) || !checkVariable(b) || !checkVariable(c)) {
-		throw SyntaxError("Invalid instruction operand", instructions.size() + 1);
+	if (!checkVariable(a) || !checkVariable(b) || !checkVariable(c) || a->isConstant()) {
+		throw SyntaxError("Invalid or undeclared instruction operand.", instructions.size() + 1);
 	}
 
 	instructions.push_back(new Mul(a, b, c));
@@ -47,8 +47,8 @@ void Machine::loadMul(Variable* a, Variable* b, Variable* c)
 
 void Machine::loadDiv(Variable* a, Variable* b, Variable* c)
 {
-	if (!checkVariable(a) || !checkVariable(b) || !checkVariable(c)) {
-		throw SyntaxError("Invalid instruction operand", instructions.size() + 1);
+	if (!checkVariable(a) || !checkVariable(b) || !checkVariable(c) || a->isConstant()) {
+		throw SyntaxError("Invalid or undeclared instruction operand.", instructions.size() + 1);
 	}
 
 	instructions.push_back(new Div(a, b, c));
@@ -56,8 +56,13 @@ void Machine::loadDiv(Variable* a, Variable* b, Variable* c)
 
 void Machine::loadGoTo(Variable* a)
 {
-	if (a == nullptr) {
-		throw SyntaxError("Invalid instruction operand", instructions.size() + 1);
+	if (a == nullptr || !a->isConstant()) {
+		throw SyntaxError("Invalid instruction operand.", instructions.size() + 1);
+		return;
+	}
+
+	if(a->castToInt() == 0) {
+		throw SyntaxError("GOTO value can not be 0.", instructions.size() + 1);
 		return;
 	}
 
@@ -66,12 +71,20 @@ void Machine::loadGoTo(Variable* a)
 
 void Machine::loadIfGr(Variable* a, Variable* b)
 {
+	if (!checkVariable(a) || !checkVariable(b)) {
+		throw SyntaxError("Invalid or undeclared instruction operand.", instructions.size() + 1);
+	}
+
 	instruction_stack.push({ instructions.size(),"IFGR" });
 	instructions.push_back(new IfGr(a, b));
 }
 
 void Machine::loadIfEq(Variable* a, Variable* b)
 {
+	if (!checkVariable(a) || !checkVariable(b)) {
+		throw SyntaxError("Invalid or undeclared instruction operand.", instructions.size() + 1);
+	}
+
 	instruction_stack.push({ instructions.size(),"IFEQ" });
 	instructions.push_back(new IfEq(a, b));
 }
@@ -79,7 +92,7 @@ void Machine::loadIfEq(Variable* a, Variable* b)
 void Machine::loadElse()
 {
 	if (instruction_stack.empty()) {
-		throw SyntaxError("Unmatched ELSE instruction", instructions.size() + 1);
+		throw SyntaxError("Unmatched ELSE instruction.", instructions.size() + 1);
 		return;
 	}
 
@@ -89,7 +102,7 @@ void Machine::loadElse()
 	string name = tmp.second;
 
 	if (name != "IFGR" && name != "IFEQ") {
-		throw SyntaxError("Unmatched ELSE instruction", instructions.size() + 1);
+		throw SyntaxError("Unmatched ELSE instruction.", instructions.size() + 1);
 		return;
 	}
 
@@ -104,6 +117,7 @@ void Machine::loadElse()
 
 	while (active_variables.size() && active_variables.top().first > pos) {
 		variable_scope.push_back({ active_variables.top().first, instructions.size() + 1});
+		active_variables.top().second->setInactive();
 		active_variables.pop();
 	}
 
@@ -114,7 +128,7 @@ void Machine::loadElse()
 void Machine::loadEndIf()
 {
 	if (instruction_stack.empty()) {
-		throw SyntaxError("Unmatched ENDIF instruction", instructions.size() + 1);
+		throw SyntaxError("Unmatched ENDIF instruction.", instructions.size() + 1);
 		return;
 	}
 
@@ -124,7 +138,7 @@ void Machine::loadEndIf()
 	string name = tmp.second;
 
 	if (name != "IFGR" && name != "IFEQ" && name != "ELSE") {
-		throw SyntaxError("Unmatched ELSE instruction", instructions.size() + 1);
+		throw SyntaxError("Unmatched ELSE instruction.", instructions.size() + 1);
 		return;
 	}
 
@@ -143,6 +157,7 @@ void Machine::loadEndIf()
 
 	while (active_variables.size() && active_variables.top().first > pos) {
 		variable_scope.push_back({ active_variables.top().first, instructions.size()});
+		active_variables.top().second->setInactive();
 		active_variables.pop();
 	}
 
@@ -151,8 +166,17 @@ void Machine::loadEndIf()
 
 void Machine::loadLoop(Variable* a)
 {
-	instruction_stack.push({ instructions.size(),"LOOP" });
+	if (a != nullptr && !a->isConstant()) {
+		throw SyntaxError("Invalid instruction operand.", instructions.size() + 1);
+		return;
+	}
 
+	if (a != nullptr && a->castToInt() <= 0) {
+		throw SyntaxError("LOOP value must be positive.", instructions.size() + 1);
+		return;
+	}
+
+	instruction_stack.push({ instructions.size(),"LOOP" });
 	active_variables.push({ instructions.size(),a });
 
 	if (a == nullptr) instructions.push_back(new Loop());
@@ -162,28 +186,31 @@ void Machine::loadLoop(Variable* a)
 void Machine::loadEndLoop()
 {
 	if (instruction_stack.empty()) {
-		throw SyntaxError("Unmatched ENDLOOP instruction", instructions.size() + 1);
+		throw SyntaxError("Unmatched ENDLOOP instruction.", instructions.size() + 1);
 		return;
 	}
 
 	pair<int, string> tmp = instruction_stack.top();
 	instruction_stack.pop();
+
 	int pos = tmp.first;
 	string name = tmp.second;
+	EndLoop* endloop = new EndLoop(pos);
 
 	if (name == "LOOP") {
 		Loop* loop = dynamic_cast<Loop*>(instructions[pos]);
-		loop->setPosEndLoop(instructions.size());
+		loop->setEndLoop(instructions.size(), endloop);
 	}
 	else {
-		throw SyntaxError("Unmatched ENDLOOP instruction", instructions.size() + 1);
+		throw SyntaxError("Unmatched ENDLOOP instruction.", instructions.size() + 1);
 		return;
 	}
 
 	while (active_variables.size() && active_variables.top().first > pos) {
 		variable_scope.push_back({ active_variables.top().first, instructions.size() + 1});
+		active_variables.top().second->setInactive();
 		active_variables.pop();
 	}
 
-	instructions.push_back(new EndLoop(pos));
+	instructions.push_back(endloop);
 }

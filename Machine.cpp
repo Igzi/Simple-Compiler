@@ -49,21 +49,23 @@ void Machine::loadProgram(const string& filepath)
 	}
 
 	if (instruction_stack.size()) {
-		cout << "Syntax error: Missing ENDLOOP or ENDIF instructions"<< endl;
+		cout << "Syntax error: Missing ENDLOOP or ENDIF instructions."<< endl;
 		clearMachine();
 		return;
 	}
-
-	while (active_variables.size()) {
-		active_variables.pop();
-	}
-	variable_scope.clear();
 }
 
 void Machine::execute(const string& filepath)
 {
 	while (pc < instructions.size()) {
-		instructions[pc]->execute(pc);
+		try {
+			instructions[pc]->execute(pc);
+		}
+		catch (ExecutionError& e) {
+			cout << "Execution error: line " << e.getLine() << ", " << e.what() << endl;
+			clearMachine();
+			return;
+		}
 	}
 
 	ofstream output(filepath);
@@ -97,7 +99,7 @@ Variable* Machine::makeVariable(string& name)
 		constants.back()->setActive(); 
 		return constants.back();
 	}
-	throw SyntaxError("Invalid variable or constant.", instructions.size());
+	throw SyntaxError("Invalid variable or constant.", instructions.size() + 1);
 	return nullptr;
 }
 
@@ -239,24 +241,30 @@ void Machine::checkGoTo()
 		if (instructions[i]->getType() != GOTO) continue;
 
 		GoTo* ins = dynamic_cast<GoTo*>(instructions[i]);
+		int x = i + ins->getMove();
+
+		if (x<0 || instructions[x]->getType() == ELSE || instructions[x]->getType() == ENDLOOP) {
+			throw SyntaxError("Invalid GOTO jump.", i + 1);
+			return;
+		}
 
 		for (int j = 0; j < variable_scope.size(); j++) {
 
-			if (i < variable_scope[j].first && i > variable_scope[j].second) {
-				int x = i + ins->getMove();
-
-				if (instructions[x]->getType() == ELSE || instructions[x]->getType() == ENDLOOP) {
-					throw SyntaxError("Invalid GOTO jump", i + 1);
-					return;
-				}
+			if (i < variable_scope[j].first || i > variable_scope[j].second) {
 
 				if (x > variable_scope[j].first && x < variable_scope[j].second) {
-					throw SyntaxError("Invalid GOTO jump", i + 1);
+					throw SyntaxError("Invalid GOTO jump.", i + 1);
 					return;
 				}
 			}
 		}
 	}
+
+	//Nisu nam vise potrebne ove vrednosti pa ih mozemo izbrisati
+	while (active_variables.size()) {
+		active_variables.pop();
+	}
+	variable_scope.clear();
 }
 
 bool Machine::checkVariable(Variable* a)

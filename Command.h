@@ -22,7 +22,6 @@ class Command {
 public:
 	virtual void execute(int& pc) = 0;
 
-	bool checkVariable(Variable* a);
 	CommandType getType();
 
 protected:
@@ -131,27 +130,30 @@ public:
 	virtual void execute(int& pc) override;
 };
 
+class EndLoop : public Command {
+public:
+	EndLoop(int loop);
+
+	void setCnt(int val);
+
+	virtual void execute(int& pc) override;
+
+protected:
+	int pos_loop, cnt;
+};
+
 class Loop : public Command {
 public:
 	Loop();
 	Loop(int val);
 
-	void setPosEndLoop(int pos);
+	void setEndLoop(int pos, EndLoop* end_loop);
 
 	virtual void execute(int& pc) override;
 
 protected:
-	int cnt, num, pos_endloop;
-};
-
-class EndLoop : public Command {
-public:
-	EndLoop(int loop);
-
-	virtual void execute(int& pc) override;
-
-protected:
-	int pos_loop;
+	int num, pos_endloop;
+	EndLoop* endloop;
 };
 
 #endif // command_h

@@ -1,12 +1,6 @@
 #include "Command.h"
 #include "Exceptions.h"
 
-bool Command::checkVariable(Variable* a)
-{
-	if (a == nullptr) return false;
-	return a->isActive();
-}
-
 CommandType Command::getType()
 {
 	return type;
@@ -27,10 +21,6 @@ void Set::execute(int& pc)
 
 Add::Add(Variable* var_a, Variable* var_b, Variable* var_c)
 {
-	if (!checkVariable(var_a) || !checkVariable(var_b) || !checkVariable(var_c)) {
-		throw SyntaxError("Invalid instruction operand", 0);
-	}
-
 	a = var_a;
 	b = var_b;
 	c = var_c;
@@ -45,10 +35,6 @@ void Add::execute(int& pc)
 
 Sub::Sub(Variable* var_a, Variable* var_b, Variable* var_c)
 {
-	if (!checkVariable(var_a) || !checkVariable(var_b) || !checkVariable(var_c)) {
-		throw SyntaxError("Invalid instruction operand", 0);
-	}
-
 	a = var_a;
 	b = var_b;
 	c = var_c;
@@ -63,10 +49,6 @@ void Sub::execute(int& pc)
 
 Mul::Mul(Variable* var_a, Variable* var_b, Variable* var_c)
 {
-	if (!checkVariable(var_a) || !checkVariable(var_b) || !checkVariable(var_c)) {
-		throw SyntaxError("Invalid instruction operand", 0);
-	}
-
 	a = var_a;
 	b = var_b;
 	c = var_c;
@@ -81,10 +63,6 @@ void Mul::execute(int& pc)
 
 Div::Div(Variable* var_a, Variable* var_b, Variable* var_c)
 {
-	if (!checkVariable(var_a) || !checkVariable(var_b) || !checkVariable(var_c)) {
-		throw SyntaxError("Invalid instruction operand", 0);
-	}
-
 	a = var_a;
 	b = var_b;
 	c = var_c;
@@ -93,6 +71,11 @@ Div::Div(Variable* var_a, Variable* var_b, Variable* var_c)
 
 void Div::execute(int& pc)
 {
+	if (c->castToInt() == 0) {
+		throw ExecutionError("Division by zero.", pc + 1);
+		return;
+	}
+
 	a->div(b, c);
 	pc++;
 }
@@ -167,39 +150,51 @@ void EndIf::execute(int& pc)
 
 Loop::Loop()
 {
-	//-1 oznacava beskonacnu petlju
-	num = -1;
+	//0 oznacava beskonacnu petlju
+	num = 0;
 	type = LOOP;
 }
 
 Loop::Loop(int val)
 {
-	cnt = 0;
 	num = val;
 	type = LOOP;
 }
 
-void Loop::setPosEndLoop(int pos)
+void Loop::setEndLoop(int pos, EndLoop* end_loop)
 {
 	pos_endloop = pos;
+	endloop = end_loop;
 }
 
 void Loop::execute(int& pc)
 {
-	if (num != -1 && cnt == num) {
-		pc = pos_endloop;
-		cnt = 0;
-	}
+	endloop->setCnt(num);
 	pc++;
 }
 
 EndLoop::EndLoop(int loop)
 {
 	pos_loop = loop;
+	cnt = -1;
 	type = ENDLOOP;
+}
+
+void EndLoop::setCnt(int val)
+{
+	cnt = val;
 }
 
 void EndLoop::execute(int& pc)
 {
-	pc = pos_loop;
+	if (cnt == 0) {
+		pc = pos_loop + 1;
+		return;
+	}
+
+	cnt--;
+	if (cnt == 0) pc++;
+	else {
+		pc = pos_loop + 1;
+	}
 }
