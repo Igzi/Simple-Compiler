@@ -177,7 +177,7 @@ void Machine::loadLoop(Variable* a)
 	}
 
 	instruction_stack.push({ instructions.size(),"LOOP" });
-	active_variables.push({ instructions.size(),a });
+	//if(a!=nullptr) active_variables.push({ instructions.size(),a }); Ova linija odredjuje da li je dozvoljeno uskakanje u petlje koje nisu beskonacne.
 
 	if (a == nullptr) instructions.push_back(new Loop());
 	else instructions.push_back(new Loop(a->castToInt()));

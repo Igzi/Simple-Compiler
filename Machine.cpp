@@ -63,7 +63,7 @@ void Machine::execute(const string& filepath)
 		}
 		catch (ExecutionError& e) {
 			cout << "Execution error: line " << e.getLine() << ", " << e.what() << endl;
-			clearMachine();
+			pc = 0;
 			return;
 		}
 	}
@@ -237,13 +237,19 @@ void Machine::loadInstruction(string& instruction)
 
 void Machine::checkGoTo()
 {
+	while (active_variables.size()) {
+		variable_scope.push_back({ active_variables.top().first, instructions.size() + 1 });
+		active_variables.top().second->setInactive();
+		active_variables.pop();
+	}
+
 	for (int i = 0; i < instructions.size(); i++) {
 		if (instructions[i]->getType() != GOTO) continue;
 
 		GoTo* ins = dynamic_cast<GoTo*>(instructions[i]);
 		int x = i + ins->getMove();
 
-		if (x<0 || instructions[x]->getType() == ELSE || instructions[x]->getType() == ENDLOOP) {
+		if (x < 0 || (x < instructions.size() && (instructions[x]->getType() == ELSE || instructions[x]->getType() == ENDLOOP))) {
 			throw SyntaxError("Invalid GOTO jump.", i + 1);
 			return;
 		}

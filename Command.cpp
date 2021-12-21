@@ -192,9 +192,10 @@ void EndLoop::execute(int& pc)
 		return;
 	}
 
-	cnt--;
-	if (cnt == 0) pc++;
+	//1 oznacava poslednje izvrsavanje te petlje
+	if (cnt == 1) pc++;
 	else {
 		pc = pos_loop + 1;
+		cnt--;
 	}
 }
