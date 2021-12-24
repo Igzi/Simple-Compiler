@@ -31,6 +31,7 @@ protected:
 class Set : public Command {
 public:
 	Set(Variable* var_a, Variable* var_b);
+
 	virtual void execute(int& pc) override;
 
 private:

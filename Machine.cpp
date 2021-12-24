@@ -28,18 +28,10 @@ void Machine::loadProgram(const string& filepath)
 	a = b = c = nullptr;
 	int move = 0;
 
-	while (getline(input,instruction)) {
-		try {
+	try {
+		while (getline(input, instruction)) {
 			loadInstruction(instruction);
 		}
-		catch (SyntaxError& e){
-			cout << "Syntax error: line " << e.getLine() << ", " << e.what() << endl;
-			clearMachine();
-			return;
-		}
-	}
-
-	try {
 		checkGoTo();
 	}
 	catch (SyntaxError& e) {
@@ -89,6 +81,8 @@ bool Machine::isInt(string& name)
 	}
 	return true;
 }
+
+//Pronalazi promenljivu sa zadatim imenom ili kreira novu promenljivu sa tim imenom
 
 Variable* Machine::makeVariable(string& name)
 {
@@ -158,12 +152,16 @@ void Machine::clearMachine()
 void Machine::loadInstruction(string& instruction)
 {
 	stringstream line(instruction);
-	string parameter[MAXINSTRUCTIONSIZE];
+	string parameter[MAXINSTRUCTIONSIZE + 1];
 	Variable* a, * b, * c;
 	a = b = c = nullptr;
 	int i = 0, pos;
 
 	while (getline(line, parameter[i], ' ')) {
+		if (i == 4) {
+			throw SyntaxError("Too many operands.", instructions.size() + 1);
+			return;
+		}
 		i++;
 	}
 	a = makeVariable(parameter[1]);
@@ -171,6 +169,11 @@ void Machine::loadInstruction(string& instruction)
 	c = makeVariable(parameter[3]);
 
 	if (parameter[0] == "SET") {
+		if (c != nullptr) {
+			throw SyntaxError("Too many operands.", instructions.size() + 1);
+			return;
+		}
+
 		loadSet(a, b);
 		return;
 	}
@@ -196,36 +199,71 @@ void Machine::loadInstruction(string& instruction)
 	}
 
 	if (parameter[0] == "GOTO") {
+		if (b != nullptr) {
+			throw SyntaxError("Too many operands.", instructions.size() + 1);
+			return;
+		}
+
 		loadGoTo(a);
 		return;
 	}
 
 	if (parameter[0] == "IFGR") {
+		if (c != nullptr) {
+			throw SyntaxError("Too many operands.", instructions.size() + 1);
+			return;
+		}
+
 		loadIfGr(a, b);
 		return;
 	}
 
 	if (parameter[0] == "IFEQ") {
+		if (c != nullptr) {
+			throw SyntaxError("Too many operands.", instructions.size() + 1);
+			return;
+		}
+
 		loadIfEq(a, b);
 		return;
 	}
 
 	if (parameter[0] == "ELSE") {
+		if (a != nullptr) {
+			throw SyntaxError("Too many operands.", instructions.size() + 1);
+			return;
+		}
+
 		loadElse();
 		return;
 	}
 
 	if (parameter[0] == "ENDIF") {
+		if (a != nullptr) {
+			throw SyntaxError("Too many operands.", instructions.size() + 1);
+			return;
+		}
+
 		loadEndIf();
 		return;
 	}
 
 	if (parameter[0] == "LOOP") {
+		if (b != nullptr) {
+			throw SyntaxError("Too many operands.", instructions.size() + 1);
+			return;
+		}
+
 		loadLoop(a);
 		return;
 	}
 
 	if (parameter[0] == "ENDLOOP") {
+		if (a != nullptr) {
+			throw SyntaxError("Too many operands.", instructions.size() + 1);
+			return;
+		}
+
 		loadEndLoop();
 		return;
 	}
@@ -233,7 +271,7 @@ void Machine::loadInstruction(string& instruction)
 	throw SyntaxError("Invalid instruction.", instructions.size() + 1);
 }
 
-//Provera da li GoTo preskace inicijalizaciju nekih promenljivih
+//Proverava da li GoTo preskace inicijalizaciju nekih promenljivih
 
 void Machine::checkGoTo()
 {

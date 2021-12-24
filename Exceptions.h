@@ -33,4 +33,4 @@ private:
 	int line;
 };
 
-#endif // !exceptions_h
+#endif // exceptions_h

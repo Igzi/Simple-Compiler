@@ -17,7 +17,6 @@ class Variable {
 public:
 	Variable();
 
-	//Ukoliko se za neki tip variable ove operacije pozivaju, a nisu redefinisane y ogovarajucoj klasi potrebno je signalizirati gresku
 	virtual void add(Variable* a, Variable* b);
 	virtual void sub(Variable* a, Variable* b);
 	virtual void mul(Variable* a, Variable* b);

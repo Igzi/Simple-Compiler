@@ -43,7 +43,7 @@ private:
 	vector<Variable*> variables, constants; //skup svih variabli i konstanti
 	vector<Command*> instructions; //skup zadatih instrukcija
 	vector<pair<int, int>> variable_scope; //intervali instrukcija na kojima neka variabla postoji
-	stack<pair<int, Variable*>> active_variables; //skup variabli koje su trenutno inicijalizovane
+	stack<pair<int, Variable*>> active_variables; //skup variabli koje su trenutno inicijalizovane i pozicija instrukcije na kojoj su incijalizovane
 	stack<pair<int, string>> instruction_stack;
 	int pc;
 };
